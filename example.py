@@ -8,8 +8,10 @@ def f(x, y):
     return x - y ** x
 
 
-expr = str(diff(f(x, y), x))
-print(expr)
+expr_df_dx = str(diff(f(x, y), x))
+expr_df_dy = str(diff(f(x, y), y))
+print(expr_df_dx)
+print(expr_df_dy)
 
 df_dx = grad(f, 0)
 df_dy = grad(f, 1)
