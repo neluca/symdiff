@@ -1,3 +1,6 @@
+"""
+一个非常简单的符号微分的实现
+"""
 import math
 
 
@@ -5,9 +8,6 @@ class Expr(object):
     _operand_name = None
 
     def __init__(self, *args):
-        for arg in args:
-            if isinstance(arg, (int, float)):
-                arg = Variable(str(arg))
         self._args = args
 
     def __add__(self, other):
@@ -50,7 +50,8 @@ class Variable(Expr):
     _operand_name = "Variable"
     __slots__ = ("name",)
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, *args):
+        super().__init__(*args)
         try:
             assert (isinstance(name, str))
         except:
@@ -134,7 +135,7 @@ class Pow(Expr):
 
     def diff(self, var):
         base = self._args[0]  # 底数
-        pow = self._args[1]   # 幂
+        pow = self._args[1]  # 幂
         dbase = base.diff(var)
         dpow = pow.diff(var)
         if isinstance(base, (int, float)):
@@ -149,18 +150,18 @@ class Div(Expr):
     _operand_name = " / "
 
     def diff(self, var):
-        numer = self._args[0]  # 分子（被除数） numerator
-        denom = self._args[1]  # 分母（除数）  denominator
-        d_numer = numer.diff(var)
-        d_denom = denom.diff(var)
-        if isinstance(numer, (int, float)):
+        numerator = self._args[0]  # 分子（被除数）
+        denominator = self._args[1]  # 分母（除数）
+        d_numerator = numerator.diff(var)
+        d_denominator = denominator.diff(var)
+        if isinstance(numerator, (int, float)):
             # 如果分子是常数
-            return Zero() - d_denom * numer / denom ** 2
-        elif isinstance(denom, (int, float)):
+            return Zero() - d_denominator * numerator / denominator ** 2
+        elif isinstance(denominator, (int, float)):
             # 如果分母是常数
-            return d_numer / denom
+            return d_numerator / denominator
         else:
-            return d_numer / denom - d_denom * numer / denom ** 2
+            return d_numerator / denominator - d_denominator * numerator / denominator ** 2
 
 
 class Log(Expr):
