@@ -1,5 +1,5 @@
 """
-一个非常简单的符号微分的实现
+A very simple implementation of symbolic differentiation
 """
 import math
 
@@ -53,10 +53,9 @@ class Variable(Expr):
     def __init__(self, name: str, *args):
         super().__init__(*args)
         try:
-            assert (isinstance(name, str))
+            assert isinstance(name, str)
         except:
-            raise TypeError("name parameters should be string, \
-                  get type {} instead".format(type(name)))
+            raise TypeError("name parameters should be string, get type {} instead".format(type(name)))
         finally:
             self.name = name
 
@@ -134,8 +133,8 @@ class Pow(Expr):
     _operand_name = " ** "
 
     def diff(self, var):
-        base = self._args[0]  # 底数
-        pow = self._args[1]  # 幂
+        base = self._args[0]  # Base
+        pow = self._args[1]  # Exponent
         dbase = base.diff(var)
         dpow = pow.diff(var)
         if isinstance(base, (int, float)):
@@ -150,15 +149,15 @@ class Div(Expr):
     _operand_name = " / "
 
     def diff(self, var):
-        numerator = self._args[0]  # 分子（被除数）
-        denominator = self._args[1]  # 分母（除数）
+        numerator = self._args[0]  # Numerator
+        denominator = self._args[1]  # Denominator
         d_numerator = numerator.diff(var)
         d_denominator = denominator.diff(var)
         if isinstance(numerator, (int, float)):
-            # 如果分子是常数
+            # If the numerator is a constant
             return Zero() - d_denominator * numerator / denominator ** 2
         elif isinstance(denominator, (int, float)):
-            # 如果分母是常数
+            # If the denominator is a constant
             return d_numerator / denominator
         else:
             return d_numerator / denominator - d_denominator * numerator / denominator ** 2
@@ -179,14 +178,16 @@ def diff(function, var):
 log = math.log
 
 
-def grad(fun, argnum=0):
+def grad(fun, arg_i=0):
     """
-    构造一个方程，它仅计算函数 fun 的梯度
-        fun: 被微分的函数。需要被微分的位置由参数 argnum 指定, 函数的返回只能为一个数（不能为数组）
-        argnums: 可选参数，只能为整数, 用于指定微分的对象；不指定则默认对第一个参数求导
+    Construct a function that computes the gradient of the input function.
+        fun: The function to be differentiated. The position of the variable to be differentiated is specified by arg_i.
+             The function must return a single value (not an array).
+        arg_i: Optional parameter, must be an integer, specifying the variable to be differentiated. Default is
+        the first parameter.
 
-    返回:
-       一个和fun具有相同输入结构的函数，这个函数能够计算函数fun的梯度
+    Returns:
+       A function with the same input structure as fun, which computes the gradient of fun.
     """
 
     def df(*args):
@@ -194,7 +195,7 @@ def grad(fun, argnum=0):
         for i in range(len(args)):
             namespace.append("arg" + str(i))
         var_list = [Variable(name) for name in namespace]
-        expr = str(diff(fun(*var_list), var_list[argnum]))
+        expr = str(diff(fun(*var_list), var_list[arg_i]))
         for i in range(len(args)):
             exec("{} = {}".format(namespace[i], args[i]))
         return eval(expr)
