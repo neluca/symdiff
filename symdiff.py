@@ -2,67 +2,73 @@
 A very simple implementation of symbolic differentiation
 """
 import math
+from typing import TypeVar, Callable, Union
+
+# Define a type variable for expressions
+T = TypeVar("T", bound="Expr")
+Num = Union[int, float]
+ExprType = Union["Expr", Num]
 
 
 class Expr(object):
-    _operand_name = None
+    _operand_name: str = None
 
-    def __init__(self, *args):
+    def __init__(self, *args: ExprType):
         self._args = args
 
-    def __add__(self, other):
+    def __add__(self, other: ExprType) -> "Add":
         return Add(self, other)
 
-    def __radd__(self, other):
+    def __radd__(self, other: ExprType) -> "Add":
         return Add(other, self)
 
-    def __sub__(self, other):
+    def __sub__(self, other: ExprType) -> "Sub":
         return Sub(self, other)
 
-    def __rsub__(self, other):
+    def __rsub__(self, other: ExprType) -> "Sub":
         return Sub(other, self)
 
-    def __mul__(self, other):
+    def __mul__(self, other: ExprType) -> "Mul":
         return Mul(self, other)
 
-    def __rmul__(self, other):
+    def __rmul__(self, other: ExprType) -> "Mul":
         return Mul(other, self)
 
-    def __truediv__(self, other):
+    def __truediv__(self, other: ExprType) -> "Div":
         return Div(self, other)
 
-    def __rtruediv__(self, other):
+    def __rtruediv__(self, other: ExprType) -> "Div":
         return Div(other, self)
 
-    def __pow__(self, other):
+    def __pow__(self, other: ExprType) -> "Pow":
         return Pow(self, other)
 
-    def __rpow__(self, other):
+    def __rpow__(self, other: ExprType) -> "Pow":
         return Pow(other, self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         terms = [str(item) for item in self._args]
         operand = self._operand_name
         return "({})".format(operand.join(terms))
 
+    def diff(self, var: "Variable") -> ExprType:
+        raise NotImplementedError("Subclasses should implement this method")
+
 
 class Variable(Expr):
-    _operand_name = "Variable"
+    _operand_name: str = "Variable"
     __slots__ = ("name",)
 
-    def __init__(self, name: str, *args):
+    def __init__(self, name: str, *args: ExprType):
         super().__init__(*args)
-        try:
-            assert isinstance(name, str)
-        except:
-            raise TypeError("name parameters should be string, get type {} instead".format(type(name)))
-        finally:
-            self.name = name
+        if not isinstance(name, str):
+            raise TypeError("name parameter should be a string, got type {} instead".format(type(name)))
+        self.name = name
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def diff(self, var):
+    def diff(self, var: "Variable") -> ExprType:
         if self.name == var.name:
             return One()
         else:
@@ -70,115 +76,109 @@ class Variable(Expr):
 
 
 class Zero(Expr):
-    _instance = None
+    _instance: "Zero" = None
 
-    def __new__(cls, *args):
-        if Zero._instance is None:
+    def __new__(cls, *args: ExprType) -> "Zero":
+        if cls._instance is None:
             obj = object.__new__(cls)
             obj.name = "0"
-            return obj
-        else:
-            return Zero._instance
+            cls._instance = obj
+        return cls._instance
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "0"
+
+    def diff(self, var: "Variable") -> "Zero":
+        return self
 
 
 class One(Expr):
-    _instance = None
+    _instance: "One" = None
 
-    def __new__(cls, *args):
-        if One._instance is None:
+    def __new__(cls, *args: ExprType) -> "One":
+        if cls._instance is None:
             obj = object.__new__(cls)
             obj.name = "1"
-            return obj
-        else:
-            return One._instance
+            cls._instance = obj
+        return cls._instance
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "1"
+
+    def diff(self, var: "Variable") -> "Zero":
+        return Zero()
 
 
 class Add(Expr):
-    _operand_name = " + "
+    _operand_name: str = " + "
 
-    def diff(self, var):
+    def diff(self, var: "Variable") -> ExprType:
         terms = self._args
         terms_after_diff = [item.diff(var) for item in terms]
         return Add(*terms_after_diff)
 
 
 class Sub(Expr):
-    _operand_name = " - "
+    _operand_name: str = " - "
 
-    def diff(self, var):
+    def diff(self, var: "Variable") -> ExprType:
         terms = self._args
         terms_after_diff = [item.diff(var) for item in terms]
         return Sub(*terms_after_diff)
 
 
 class Mul(Expr):
-    _operand_name = " * "
+    _operand_name: str = " * "
 
-    def diff(self, var):
+    def diff(self, var: "Variable") -> ExprType:
         terms = self._args
         if len(terms) != 2:
             raise ValueError("Mul operation takes only 2 parameters")
-        terms_after_diff = [item.diff(var) for item in terms]
-
-        return Add(*terms_after_diff)
+        a, b = terms
+        return Add(a.diff(var) * b, a * b.diff(var))
 
 
 class Pow(Expr):
-    _operand_name = " ** "
+    _operand_name: str = " ** "
 
-    def diff(self, var):
-        base = self._args[0]  # Base
-        pow = self._args[1]  # Exponent
+    def diff(self, var: "Variable") -> ExprType:
+        base, exponent = self._args
         dbase = base.diff(var)
-        dpow = pow.diff(var)
+        dpow = exponent.diff(var)
         if isinstance(base, (int, float)):
             return self * dpow * Log(base)
-        elif isinstance(pow, (int, float)):
-            return self * dbase * pow / base
+        elif isinstance(exponent, (int, float)):
+            return self * dbase * exponent / base
         else:
-            return self * (dpow * Log(base) + dbase * pow / base)
+            return self * (dpow * Log(base) + dbase * exponent / base)
 
 
 class Div(Expr):
-    _operand_name = " / "
+    _operand_name: str = " / "
 
-    def diff(self, var):
-        numerator = self._args[0]  # Numerator
-        denominator = self._args[1]  # Denominator
+    def diff(self, var: "Variable") -> ExprType:
+        numerator, denominator = self._args
         d_numerator = numerator.diff(var)
         d_denominator = denominator.diff(var)
-        if isinstance(numerator, (int, float)):
-            # If the numerator is a constant
-            return Zero() - d_denominator * numerator / denominator ** 2
-        elif isinstance(denominator, (int, float)):
-            # If the denominator is a constant
-            return d_numerator / denominator
-        else:
-            return d_numerator / denominator - d_denominator * numerator / denominator ** 2
+        return (d_numerator * denominator - numerator * d_denominator) / (denominator ** 2)
 
 
 class Log(Expr):
-    def __str__(self):
+    def __str__(self) -> str:
         return f"log({str(self._args[0])})"
 
-    def diff(self, var):
+    def diff(self, var: "Variable") -> ExprType:
         return self._args[0].diff(var) / self._args[0]
 
 
-def diff(function, var):
+def diff(function: Expr, var: Variable) -> ExprType:
     return function.diff(var)
 
 
 log = math.log
 
 
-def grad(fun, arg_i=0):
+def grad(fun: Callable[..., ExprType], arg_i: int = 0) -> Callable[..., ExprType]:
     """
     Construct a function that computes the gradient of the input function.
         fun: The function to be differentiated. The position of the variable to be differentiated is specified by arg_i.
@@ -190,10 +190,8 @@ def grad(fun, arg_i=0):
        A function with the same input structure as fun, which computes the gradient of fun.
     """
 
-    def df(*args):
-        namespace = []
-        for i in range(len(args)):
-            namespace.append("arg" + str(i))
+    def df(*args: ExprType):
+        namespace = [f"arg{i}" for i in range(len(args))]
         var_list = [Variable(name) for name in namespace]
         expr = str(diff(fun(*var_list), var_list[arg_i]))
         for i in range(len(args)):
